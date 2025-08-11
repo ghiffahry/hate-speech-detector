@@ -1,0 +1,45 @@
+services:
+  api:
+    build:
+      context: .                    # Direktori root proyek (Projek_Ku/)
+      dockerfile: Dockerfile
+    container_name: hate-speech-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Hanya mount folder yang perlu live-edit
+      - ./app:/app/app:cached
+      - ./static:/app/static:cached
+      - ./logs:/app/logs
+      - ./results:/app/results
+      - ./uploads:/app/uploads
+      - ./plots:/app/plots
+      # Model TIDAK dimount supaya pakai versi dari image
+    environment:
+      MODEL_PATH: /app/model/optimized
+      LOG_LEVEL: info
+      LOG_FILE: /app/logs/app.log
+      PYTHONUNBUFFERED: 1
+      APP_BASE_DIR: /app  # Tambahan untuk path consistency
+    command: >
+      uvicorn app.app:create_app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --factory
+    restart: unless-stopped  # Tambahan untuk stability
+    # Healthcheck dihapus karena curl tidak terinstall di container
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: hate-speech-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/html/static:ro
+      - ./results:/usr/share/nginx/html/results:ro
+    depends_on:
+      - api  # Simple depends_on tanpa condition
+    restart: unless-stopped
